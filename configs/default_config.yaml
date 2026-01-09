@@ -1,0 +1,30 @@
+# Speech Enhancement Model Configuration
+
+model:
+  base_channels: 32
+
+training:
+  epochs: 100
+  batch_size: 8
+  learning_rate: 1e-3
+  weight_decay: 1e-5
+
+loss:
+  alpha: 0.3  # Power-law compression parameter
+  lambda_cv: 0.5  # Weight for complex value loss
+  lambda_mag: 0.5  # Weight for magnitude loss
+
+data:
+  n_fft: 512  # FFT size
+  hop_length: 256  # Hop length for STFT
+  max_length: 32000  # Maximum audio length in samples (None for no limit)
+
+optimization:
+  optimizer: "adam"
+  scheduler: "reduce_on_plateau"
+  scheduler_factor: 0.5
+  scheduler_patience: 5
+
+augmentation:
+  apply_augmentation: false
+  noise_snr_range: [5, 20]  # SNR range in dB

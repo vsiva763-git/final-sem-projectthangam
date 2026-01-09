@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 Speech Enhancement - Remove Noise from Audio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f1ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8e9ff;
+            transform: scale(1.02);
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .upload-hint {
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+            width: 100%;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.processing {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+            display: none;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .stats {
+            background: #f8f9ff;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .stats-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .stats-item:last-child {
+            border-bottom: none;
+        }
+
+        .download-btn {
+            background: #28a745;
+            margin-top: 15px;
+        }
+
+        .download-btn:hover {
+            background: #218838;
+            box-shadow: 0 10px 20px rgba(40, 167, 69, 0.4);
+        }
+
+        .file-info {
+            background: #e8e9ff;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .feature-list {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 2px solid #f0f0f0;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            color: #555;
+        }
+
+        .feature-icon {
+            font-size: 1.5em;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Speech Enhancement</h1>
+        <p class="subtitle">Remove noise from your audio files using AI</p>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">🎙️</div>
+            <div class="upload-text">Drop your audio file here</div>
+            <div class="upload-hint">or click to browse (WAV files only)</div>
+            <input type="file" id="fileInput" accept=".wav" />
+        </div>
+
+        <div class="file-info" id="fileInfo">
+            <strong>Selected:</strong> <span id="fileName"></span>
+        </div>
+
+        <button class="btn" id="uploadBtn" disabled>
+            🚀 Remove Noise
+        </button>
+
+        <div class="loader" id="loader"></div>
+
+        <div class="status" id="status"></div>
+
+        <div class="stats" id="stats"></div>
+
+        <div class="feature-list">
+            <div class="feature-item">
+                <span class="feature-icon">✅</span>
+                <span>Removes background noise</span>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">✅</span>
+                <span>Preserves speech quality</span>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">✅</span>
+                <span>Powered by neural networks</span>
+            </div>
+            <div class="feature-item">
+                <span class="feature-icon">✅</span>
+                <span>Fast processing</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const status = document.getElementById('status');
+        const loader = document.getElementById('loader');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileName = document.getElementById('fileName');
+        const statsDiv = document.getElementById('stats');
+
+        let selectedFile = null;
+
+        // Click to upload
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // File selection
+        fileInput.addEventListener('change', (e) => {
+            handleFileSelect(e.target.files[0]);
+        });
+
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFileSelect(e.dataTransfer.files[0]);
+        });
+
+        function handleFileSelect(file) {
+            if (!file) return;
+
+            if (!file.name.toLowerCase().endsWith('.wav')) {
+                showStatus('error', '❌ Please select a WAV file');
+                return;
+            }
+
+            selectedFile = file;
+            fileName.textContent = file.name;
+            fileInfo.style.display = 'block';
+            uploadBtn.disabled = false;
+            hideStatus();
+        }
+
+        // Upload and process
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+
+            const formData = new FormData();
+            formData.append('audio', selectedFile);
+
+            uploadBtn.disabled = true;
+            loader.style.display = 'block';
+            showStatus('processing', '🔄 Processing your audio... Please wait...');
+            statsDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showStatus('success', '✅ ' + result.message);
+                    displayStats(result.stats);
+                    showDownloadButton(result.download_url);
+                } else {
+                    showStatus('error', '❌ Error: ' + result.error);
+                }
+            } catch (error) {
+                showStatus('error', '❌ Error: ' + error.message);
+            } finally {
+                loader.style.display = 'none';
+                uploadBtn.disabled = false;
+            }
+        });
+
+        function showStatus(type, message) {
+            status.className = 'status ' + type;
+            status.textContent = message;
+            status.style.display = 'block';
+        }
+
+        function hideStatus() {
+            status.style.display = 'none';
+        }
+
+        function displayStats(stats) {
+            statsDiv.innerHTML = '<h3 style="margin-bottom: 10px;">📊 Processing Stats:</h3>';
+            
+            for (const [key, value] of Object.entries(stats)) {
+                const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                statsDiv.innerHTML += `
+                    <div class="stats-item">
+                        <span><strong>${label}:</strong></span>
+                        <span>${value}</span>
+                    </div>
+                `;
+            }
+            
+            statsDiv.style.display = 'block';
+        }
+
+        function showDownloadButton(downloadUrl) {
+            const existingBtn = document.getElementById('downloadBtn');
+            if (existingBtn) existingBtn.remove();
+
+            const downloadBtn = document.createElement('a');
+            downloadBtn.id = 'downloadBtn';
+            downloadBtn.href = downloadUrl;
+            downloadBtn.className = 'btn download-btn';
+            downloadBtn.textContent = '⬇️ Download Enhanced Audio';
+            downloadBtn.style.display = 'block';
+            downloadBtn.style.textDecoration = 'none';
+            downloadBtn.style.textAlign = 'center';
+
+            uploadBtn.parentNode.insertBefore(downloadBtn, uploadBtn.nextSibling);
+        }
+    </script>
+</body>
+</html>

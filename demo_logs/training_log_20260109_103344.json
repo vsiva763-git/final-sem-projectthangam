@@ -1,0 +1,18 @@
+{
+  "train": {
+    "0": {
+      "loss": NaN
+    },
+    "1": {
+      "loss": NaN
+    }
+  },
+  "val": {
+    "0": {
+      "loss": NaN
+    },
+    "1": {
+      "loss": NaN
+    }
+  }
+}
