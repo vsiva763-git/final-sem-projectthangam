@@ -324,16 +324,34 @@
                     body: formData
                 });
 
-                const result = await response.json();
+                // Check if response is ok
+                if (!response.ok) {
+                    const text = await response.text();
+                    try {
+                        const errorData = JSON.parse(text);
+                        throw new Error(errorData.error || `Server error: ${response.status}`);
+                    } catch (e) {
+                        throw new Error(`Server error: ${response.status} - ${text || 'No response'}`);
+                    }
+                }
+
+                // Parse JSON response
+                const text = await response.text();
+                if (!text) {
+                    throw new Error('Empty response from server');
+                }
+
+                const result = JSON.parse(text);
 
                 if (result.success) {
                     showStatus('success', '✅ ' + result.message);
                     displayStats(result.stats);
                     showDownloadButton(result.download_url);
                 } else {
-                    showStatus('error', '❌ Error: ' + result.error);
+                    showStatus('error', '❌ Error: ' + (result.error || 'Unknown error'));
                 }
             } catch (error) {
+                console.error('Error:', error);
                 showStatus('error', '❌ Error: ' + error.message);
             } finally {
                 loader.style.display = 'none';

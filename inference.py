@@ -25,6 +25,7 @@ class SpeechEnhancer:
         n_fft: int = 512,
         hop_length: int = 256,
         device: str = 'cuda',
+        base_channels: int = 16,
     ):
         """
         Initialize speech enhancer.
@@ -34,11 +35,12 @@ class SpeechEnhancer:
             n_fft: FFT size
             hop_length: Hop length
             device: Device to use (cuda/cpu)
+            base_channels: Base channels used in model (16 for checkpoint models)
         """
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
         
         # Load model
-        self.model = SpeechEnhancementNetwork(base_channels=32).to(self.device)
+        self.model = SpeechEnhancementNetwork(base_channels=base_channels).to(self.device)
         
         # Load checkpoint
         if not Path(model_path).exists():

@@ -1,0 +1,20 @@
+nohup: ignoring input
+🤖 Loading speech enhancement model...
+✅ Model loaded successfully on cpu
+
+============================================================
+🎵 Speech Enhancement Web Application
+============================================================
+🌐 Open your browser and go to: http://localhost:5000
+🤖 Model: demo_checkpoints/checkpoint_epoch_1.pt
+💻 Device: cpu
+============================================================
+
+ * Serving Flask app 'app'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.0.1.215:5000
+Press CTRL+C to quit
+127.0.0.1 - - [10/Jan/2026 08:25:52] "GET /health HTTP/1.1" 200 -

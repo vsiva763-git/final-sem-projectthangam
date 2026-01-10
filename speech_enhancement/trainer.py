@@ -260,19 +260,27 @@ class Trainer:
                 )
                 
                 loss.backward()
+                
+                # Gradient clipping to prevent exploding gradients
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)
+                
                 self.optimizer.step()
             
-            total_loss += loss.item()
-            num_batches += 1
+            # Skip NaN losses
+            loss_value = loss.item()
+            if not torch.isnan(torch.tensor(loss_value)):
+                total_loss += loss_value
+                num_batches += 1
             
-            # Update progress bar
+            # Update progress bar with safe division
+            avg_loss = total_loss / max(num_batches, 1)
             pbar.set_postfix({
-                'loss': total_loss / num_batches,
+                'loss': avg_loss,
                 'loss_cv': loss_dict.get('loss_cv', 0.0),
                 'loss_mag': loss_dict.get('loss_mag', 0.0),
             })
         
-        avg_loss = total_loss / num_batches
+        avg_loss = total_loss / max(num_batches, 1)
         return {'loss': avg_loss}
     
     def validate(

@@ -1,7 +1,7 @@
 # Speech Enhancement Model Configuration
 
 model:
-  base_channels: 32
+  base_channels: 16
 
 training:
   epochs: 100

@@ -70,52 +70,141 @@ def denoise_audio_file(input_path, output_path):
         dict with processing info
     """
     try:
+        print(f"[DENOISE] Starting: {input_path}")
+        
         # Load audio
+        print(f"[DENOISE] Loading audio...")
         noisy_audio, sample_rate = sf.read(input_path)
+        print(f"[DENOISE] Audio loaded: shape={noisy_audio.shape}, sr={sample_rate}")
         
         # Convert stereo to mono if needed
         if len(noisy_audio.shape) > 1:
+            print(f"[DENOISE] Converting stereo to mono...")
             noisy_audio = np.mean(noisy_audio, axis=1)
         
+        # Ensure proper dtype
+        noisy_audio = noisy_audio.astype(np.float32)
+        print(f"[DENOISE] Audio shape after conversion: {noisy_audio.shape}")
+        
         # Compute STFT
-        noisy_audio_tensor = torch.from_numpy(noisy_audio.astype(np.float32))
+        print(f"[DENOISE] Computing STFT...")
+        noisy_audio_tensor = torch.from_numpy(noisy_audio)
         real_part, imag_part = STFT_PROCESSOR.stft(noisy_audio_tensor)
+        print(f"[DENOISE] STFT complete: real_part shape={real_part.shape}, imag_part shape={imag_part.shape}")
         
-        # Add batch and channel dimensions
-        real_part = real_part.unsqueeze(0).unsqueeze(0).to(DEVICE)
-        imag_part = imag_part.unsqueeze(0).unsqueeze(0).to(DEVICE)
+        # Check if STFT output is valid
+        if real_part.shape[0] == 0 or real_part.shape[1] == 0:
+            raise ValueError(f"Invalid STFT output shape: {real_part.shape}")
         
-        # Enhance audio
-        with torch.no_grad():
-            enhanced_real, enhanced_imag = MODEL(real_part, imag_part)
+        # Pad or slice to match expected dimensions (257 freq bins)
+        # The model expects 257 frequency bins (n_fft=512 gives 512/2 + 1 = 257)
+        expected_freq_bins = 257
+        actual_freq_bins = real_part.shape[0]
         
-        # Remove dimensions
-        enhanced_real = enhanced_real.squeeze(0).squeeze(0).cpu()
-        enhanced_imag = enhanced_imag.squeeze(0).squeeze(0).cpu()
+        if actual_freq_bins != expected_freq_bins:
+            print(f"[DENOISE] Warning: Expected {expected_freq_bins} freq bins, got {actual_freq_bins}")
+            if actual_freq_bins < expected_freq_bins:
+                # Pad with zeros
+                pad_size = expected_freq_bins - actual_freq_bins
+                real_part = torch.nn.functional.pad(real_part, (0, 0, 0, pad_size))
+                imag_part = torch.nn.functional.pad(imag_part, (0, 0, 0, pad_size))
+            else:
+                # Slice
+                real_part = real_part[:expected_freq_bins, :]
+                imag_part = imag_part[:expected_freq_bins, :]
+        
+        # Process in chunks if the audio is too long
+        max_time_frames = 500  # Process max 500 time frames at once
+        num_chunks = int(np.ceil(real_part.shape[1] / max_time_frames))
+        
+        print(f"[DENOISE] Total time frames: {real_part.shape[1]}, chunks: {num_chunks}")
+        
+        enhanced_real_list = []
+        enhanced_imag_list = []
+        
+        for chunk_idx in range(num_chunks):
+            print(f"[DENOISE] Processing chunk {chunk_idx + 1}/{num_chunks}...")
+            
+            # Get chunk
+            start_frame = chunk_idx * max_time_frames
+            end_frame = min((chunk_idx + 1) * max_time_frames, real_part.shape[1])
+            
+            chunk_real = real_part[:, start_frame:end_frame]
+            chunk_imag = imag_part[:, start_frame:end_frame]
+            
+            # Add batch and channel dimensions
+            chunk_real = chunk_real.unsqueeze(0).unsqueeze(0).to(DEVICE)
+            chunk_imag = chunk_imag.unsqueeze(0).unsqueeze(0).to(DEVICE)
+            
+            print(f"[DENOISE] Chunk shape: real={chunk_real.shape}, imag={chunk_imag.shape}")
+            
+            # Enhance audio
+            print(f"[DENOISE] Running model inference for chunk {chunk_idx + 1}/{num_chunks}...")
+            with torch.no_grad():
+                chunk_enhanced_real, chunk_enhanced_imag = MODEL(chunk_real, chunk_imag)
+            
+            # Remove batch and channel dimensions
+            chunk_enhanced_real = chunk_enhanced_real.squeeze(0).squeeze(0).cpu()
+            chunk_enhanced_imag = chunk_enhanced_imag.squeeze(0).squeeze(0).cpu()
+            
+            enhanced_real_list.append(chunk_enhanced_real)
+            enhanced_imag_list.append(chunk_enhanced_imag)
+        
+        # Concatenate all chunks
+        enhanced_real = torch.cat(enhanced_real_list, dim=1)
+        enhanced_imag = torch.cat(enhanced_imag_list, dim=1)
+        
+        print(f"[DENOISE] After concatenation: real={enhanced_real.shape}, imag={enhanced_imag.shape}")
         
         # Inverse STFT
+        print(f"[DENOISE] Computing inverse STFT...")
         enhanced_audio = STFT_PROCESSOR.istft(enhanced_real, enhanced_imag)
+        print(f"[DENOISE] Enhanced audio shape: {enhanced_audio.shape}")
         
         # Save enhanced audio
         enhanced_audio_np = enhanced_audio.numpy()
+        print(f"[DENOISE] Saving to: {output_path}")
         sf.write(output_path, enhanced_audio_np, sample_rate)
         
         # Calculate stats
         duration = len(noisy_audio) / sample_rate
         
+        print(f"[DENOISE] Success! Duration: {duration:.2f}s")
         return {
             'success': True,
-            'sample_rate': sample_rate,
-            'duration': duration,
-            'input_samples': len(noisy_audio),
-            'output_samples': len(enhanced_audio_np),
+            'sample_rate': int(sample_rate),
+            'duration': float(duration),
+            'input_samples': int(len(noisy_audio)),
+            'output_samples': int(len(enhanced_audio_np)),
         }
         
     except Exception as e:
+        import traceback
+        error_msg = str(e)
+        print(f"[DENOISE] ERROR: {error_msg}")
+        traceback.print_exc()
         return {
             'success': False,
-            'error': str(e)
+            'error': error_msg
         }
+
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint"""
+    try:
+        return jsonify({
+            'success': True,
+            'status': 'healthy',
+            'model': 'loaded',
+            'device': str(DEVICE)
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'status': 'unhealthy',
+            'error': str(e)
+        }), 500
 
 
 @app.route('/')
@@ -128,18 +217,18 @@ def index():
 def upload_file():
     """Handle file upload and processing"""
     
-    if 'audio' not in request.files:
-        return jsonify({'error': 'No file uploaded'}), 400
-    
-    file = request.files['audio']
-    
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-    
-    if not file.filename.lower().endswith('.wav'):
-        return jsonify({'error': 'Only WAV files are supported'}), 400
-    
     try:
+        if 'audio' not in request.files:
+            return jsonify({'success': False, 'error': 'No file uploaded'}), 400
+        
+        file = request.files['audio']
+        
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        if not file.filename.lower().endswith('.wav'):
+            return jsonify({'success': False, 'error': 'Only WAV files are supported'}), 400
+        
         # Generate unique filename
         unique_id = str(uuid.uuid4())
         filename = secure_filename(file.filename)
@@ -161,12 +250,12 @@ def upload_file():
                 'message': 'Audio enhanced successfully!',
                 'download_url': url_for('download_file', filename=output_filename),
                 'stats': {
-                    'sample_rate': result['sample_rate'],
+                    'sample_rate': int(result['sample_rate']),
                     'duration': f"{result['duration']:.2f} seconds",
-                    'input_samples': result['input_samples'],
-                    'output_samples': result['output_samples'],
+                    'input_samples': int(result['input_samples']),
+                    'output_samples': int(result['output_samples']),
                 }
-            })
+            }), 200
         else:
             return jsonify({
                 'success': False,
@@ -174,14 +263,28 @@ def upload_file():
             }), 500
             
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        import traceback
+        error_msg = str(e)
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': error_msg
+        }), 500
 
 
 @app.route('/download/<filename>')
 def download_file(filename):
     """Download enhanced audio file"""
     try:
+        # Validate filename (security check)
+        if '..' in filename or '/' in filename:
+            return jsonify({'success': False, 'error': 'Invalid filename'}), 400
+            
         file_path = os.path.join(app.config['OUTPUT_FOLDER'], filename)
+        
+        if not os.path.exists(file_path):
+            return jsonify({'success': False, 'error': 'File not found'}), 404
+            
         return send_file(
             file_path,
             as_attachment=True,
@@ -189,7 +292,7 @@ def download_file(filename):
             mimetype='audio/wav'
         )
     except Exception as e:
-        return jsonify({'error': str(e)}), 404
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/cleanup', methods=['POST'])
@@ -235,4 +338,4 @@ if __name__ == '__main__':
     print("=" * 60 + "\n")
     
     # Run Flask app
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)

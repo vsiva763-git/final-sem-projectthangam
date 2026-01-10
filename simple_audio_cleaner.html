@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 Audio Noise Remover - Simple Version</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 700px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .upload-section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .upload-section h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #667eea;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            background: white;
+        }
+
+        input[type="file"]:hover {
+            border-color: #764ba2;
+        }
+
+        .audio-player {
+            margin: 20px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        .audio-player h4 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            width: 100%;
+            margin: 20px 0;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            text-align: center;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .status.processing {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        .instructions {
+            background: #e7f3ff;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #667eea;
+        }
+
+        .instructions h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+            color: #333;
+        }
+
+        .instructions li {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Audio Noise Remover</h1>
+        <p class="subtitle">Upload noisy audio and get clean audio back</p>
+
+        <div class="instructions">
+            <h3>📋 How to Use:</h3>
+            <ol>
+                <li>Click "Choose File" and select your noisy audio (.wav file)</li>
+                <li>Listen to your uploaded audio</li>
+                <li>Click "Clean Audio" to process it</li>
+                <li>Listen to the cleaned result and download if satisfied</li>
+            </ol>
+        </div>
+
+        <div class="upload-section">
+            <h3>1️⃣ Upload Noisy Audio</h3>
+            <input type="file" id="audioInput" accept=".wav,audio/wav" />
+        </div>
+
+        <div id="noisyPlayer" class="audio-player" style="display:none;">
+            <h4>🔊 Original Noisy Audio:</h4>
+            <audio id="noisyAudio" controls></audio>
+        </div>
+
+        <button id="processBtn" class="btn" disabled>🎯 Clean Audio</button>
+
+        <div id="status" class="status"></div>
+
+        <div id="cleanPlayer" class="audio-player" style="display:none;">
+            <h4>✨ Cleaned Audio:</h4>
+            <audio id="cleanAudio" controls></audio>
+            <button id="downloadBtn" class="btn" style="margin-top: 15px;">💾 Download Clean Audio</button>
+        </div>
+    </div>
+
+    <script>
+        const audioInput = document.getElementById('audioInput');
+        const noisyPlayer = document.getElementById('noisyPlayer');
+        const noisyAudio = document.getElementById('noisyAudio');
+        const processBtn = document.getElementById('processBtn');
+        const status = document.getElementById('status');
+        const cleanPlayer = document.getElementById('cleanPlayer');
+        const cleanAudio = document.getElementById('cleanAudio');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        let uploadedFile = null;
+        let cleanedAudioBlob = null;
+
+        // Handle file selection
+        audioInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                uploadedFile = file;
+                
+                // Show noisy audio player
+                const url = URL.createObjectURL(file);
+                noisyAudio.src = url;
+                noisyPlayer.style.display = 'block';
+                processBtn.disabled = false;
+                
+                // Hide clean audio player
+                cleanPlayer.style.display = 'none';
+                status.className = 'status';
+                status.style.display = 'none';
+            }
+        });
+
+        // Process audio
+        processBtn.addEventListener('click', async function() {
+            if (!uploadedFile) {
+                showStatus('Please upload an audio file first!', 'error');
+                return;
+            }
+
+            processBtn.disabled = true;
+            showStatus('🔄 Processing audio... Please wait...', 'processing');
+
+            const formData = new FormData();
+            formData.append('audio', uploadedFile);
+
+            try {
+                const response = await fetch('http://localhost:5000/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('Processing failed');
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Download the cleaned audio
+                    const downloadResponse = await fetch(result.download_url);
+                    cleanedAudioBlob = await downloadResponse.blob();
+                    
+                    // Show clean audio player
+                    const url = URL.createObjectURL(cleanedAudioBlob);
+                    cleanAudio.src = url;
+                    cleanPlayer.style.display = 'block';
+                    
+                    showStatus('✅ Audio cleaned successfully!', 'success');
+                } else {
+                    showStatus('❌ Error: ' + result.error, 'error');
+                }
+            } catch (error) {
+                showStatus('❌ Error connecting to server. Make sure the server is running!', 'error');
+                console.error('Error:', error);
+            } finally {
+                processBtn.disabled = false;
+            }
+        });
+
+        // Download cleaned audio
+        downloadBtn.addEventListener('click', function() {
+            if (cleanedAudioBlob) {
+                const url = URL.createObjectURL(cleanedAudioBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'cleaned_audio.wav';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        });
+
+        function showStatus(message, type) {
+            status.textContent = message;
+            status.className = 'status ' + type;
+            status.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
