@@ -193,10 +193,15 @@ class CombinedLoss(nn.Module):
         # Ensure no NaN
         total_loss = torch.clamp(total_loss, max=1e6)
         
+        # Safely get loss values
+        total_loss_val = total_loss.item() if not torch.isnan(total_loss).any() else 0.0
+        cv_loss_val = cv_loss.item() if not torch.isnan(cv_loss).any() else 0.0
+        mag_loss_val = mag_loss.item() if not torch.isnan(mag_loss).any() else 0.0
+        
         loss_dict = {
-            "loss_total": total_loss.item() if not torch.isnan(total_loss) else 0.0,
-            "loss_cv": cv_loss.item() if not torch.isnan(cv_loss) else 0.0,
-            "loss_mag": mag_loss.item() if not torch.isnan(mag_loss) else 0.0,
+            "loss_total": total_loss_val,
+            "loss_cv": cv_loss_val,
+            "loss_mag": mag_loss_val,
         }
         
         return total_loss, loss_dict
