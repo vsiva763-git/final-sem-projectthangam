@@ -93,9 +93,18 @@ def denoise_audio(
     print("   Computing inverse STFT...")
     enhanced_audio = stft_processor.istft(enhanced_real, enhanced_imag)
     
+    # Convert to numpy and normalize
+    enhanced_audio_np = enhanced_audio.numpy()
+    
+    # Normalize audio to prevent clipping
+    max_val = np.abs(enhanced_audio_np).max()
+    if max_val > 0:
+        enhanced_audio_np = enhanced_audio_np / max_val * 0.95  # Scale to 95% to avoid clipping
+    
+    print(f"   Audio normalized: max={max_val:.6f}")
+    
     # Save enhanced audio
     print(f"\n💾 Saving enhanced audio: {output_file}")
-    enhanced_audio_np = enhanced_audio.numpy()
     sf.write(output_file, enhanced_audio_np, sample_rate)
     
     print(f"   Output duration: {len(enhanced_audio_np) / sample_rate:.2f} seconds")

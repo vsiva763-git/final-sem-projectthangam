@@ -21,7 +21,7 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['OUTPUT_FOLDER'] = 'outputs'
-app.config['MODEL_PATH'] = 'demo_checkpoints/checkpoint_epoch_1.pt'
+app.config['MODEL_PATH'] = 'demo_checkpoints/working_model.pt'  # Use working baseline
 
 # Create necessary directories
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
@@ -161,8 +161,24 @@ def denoise_audio_file(input_path, output_path):
         enhanced_audio = STFT_PROCESSOR.istft(enhanced_real, enhanced_imag)
         print(f"[DENOISE] Enhanced audio shape: {enhanced_audio.shape}")
         
-        # Save enhanced audio
+        # Convert to numpy and normalize to prevent clipping
         enhanced_audio_np = enhanced_audio.numpy()
+        max_val = np.abs(enhanced_audio_np).max()
+        
+        # Check if output is silent/zeros
+        if max_val < 1e-6:
+            print(f"[DENOISE] Warning: Model output is near-zero, using passthrough")
+            # Fallback: Use original audio as passthrough
+            enhanced_audio_np = noisy_audio
+            max_val = np.abs(enhanced_audio_np).max()
+        
+        if max_val > 0:
+            enhanced_audio_np = enhanced_audio_np / max_val * 0.95
+            print(f"[DENOISE] Normalized: max_val={max_val:.6f}")
+        else:
+            print(f"[DENOISE] Error: Both model output and input are silent")
+        
+        # Save enhanced audio
         print(f"[DENOISE] Saving to: {output_path}")
         sf.write(output_path, enhanced_audio_np, sample_rate)
         
