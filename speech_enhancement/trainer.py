@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from typing import Optional, Dict, Any
+import sys
 import os
 from pathlib import Path
 from datetime import datetime
@@ -224,19 +225,21 @@ class Trainer:
         Returns:
             Dictionary with training metrics
         """
-        self.model.train()
-        total_loss = 0.0
-        num_batches = 0
-        
-        pbar = tqdm(train_loader, desc="Training")
-        
-        for batch_idx, batch in enumerate(pbar):
-            # Unpack batch
-            noisy_real, noisy_imag, clean_real, clean_imag = [
-                b.to(self.device) for b in batch
-            ]
+        try:
+            self.model.train()
+            total_loss = 0.0
+            num_batches = 0
             
-            self.optimizer.zero_grad()
+            num_batches_total = len(train_loader)
+            print(f"  Training on {num_batches_total} batches...", flush=True)
+            
+            for batch_idx, batch in enumerate(train_loader):
+                # Unpack batch
+                noisy_real, noisy_imag, clean_real, clean_imag = [
+                    b.to(self.device) for b in batch
+                ]
+                
+                self.optimizer.zero_grad()
             
             if use_amp and self.scaler is not None:
                 with torch.cuda.amp.autocast():
@@ -274,14 +277,16 @@ class Trainer:
             
             # Update progress bar with safe division
             avg_loss = total_loss / max(num_batches, 1)
-            pbar.set_postfix({
-                'loss': avg_loss,
-                'loss_cv': loss_dict.get('loss_cv', 0.0),
-                'loss_mag': loss_dict.get('loss_mag', 0.0),
-            })
-        
-        avg_loss = total_loss / max(num_batches, 1)
-        return {'loss': avg_loss}
+            if (batch_idx + 1) % 50 == 0 or batch_idx == 0:
+                print(f"  Batch {batch_idx + 1}/{num_batches_total}: loss={avg_loss:.4f}")
+            
+            avg_loss = total_loss / max(num_batches, 1)
+            return {'loss': avg_loss}
+        except Exception as e:
+            print(f"\n✗ Error in training: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'loss': float('inf')}
     
     def validate(
         self,
@@ -300,10 +305,11 @@ class Trainer:
         total_loss = 0.0
         num_batches = 0
         
+        num_batches_total = len(val_loader)
+        print(f"  Validating on {num_batches_total} batches...")
+        
         with torch.no_grad():
-            pbar = tqdm(val_loader, desc="Validating")
-            
-            for batch in pbar:
+            for batch_idx, batch in enumerate(val_loader):
                 # Unpack batch
                 noisy_real, noisy_imag, clean_real, clean_imag = [
                     b.to(self.device) for b in batch
@@ -319,7 +325,9 @@ class Trainer:
                 total_loss += loss.item()
                 num_batches += 1
                 
-                pbar.set_postfix({'loss': total_loss / num_batches})
+                if (batch_idx + 1) % 50 == 0 or batch_idx == 0:
+                    avg_loss = total_loss / num_batches
+                    print(f"  Batch {batch_idx + 1}/{num_batches_total}: loss={avg_loss:.4f}")
         
         avg_loss = total_loss / num_batches
         return {'loss': avg_loss}

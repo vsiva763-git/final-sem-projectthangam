@@ -1,0 +1,49 @@
+Configuration:
+augmentation:
+  apply_augmentation: false
+  noise_snr_range:
+  - 5
+  - 20
+data:
+  clean_dir: /home/codespace/.cache/kagglehub/datasets/anupamupadhaya/voicebank-cleantest-esc-crybaby-dog/versions/1/clean_testset_wav/clean_testset_wav
+  hop_length: 256
+  max_length: 32000
+  n_fft: 512
+  noisy_dir: /home/codespace/.cache/kagglehub/datasets/anupamupadhaya/voicebank-cleantest-esc-crybaby-dog/versions/1/noisy_dataset_wav/noisy_dataset_wav
+loss:
+  alpha: 0.3
+  lambda_cv: 0.5
+  lambda_mag: 0.5
+model:
+  base_channels: 16
+optimization:
+  optimizer: adam
+  scheduler: reduce_on_plateau
+  scheduler_factor: 0.5
+  scheduler_patience: 5
+training:
+  batch_size: 4
+  epochs: 5
+  learning_rate: 0.001
+  weight_decay: 1.0e-05
+
+
+Clean audio directory: /home/codespace/.cache/kagglehub/datasets/anupamupadhaya/voicebank-cleantest-esc-crybaby-dog/versions/1/clean_testset_wav/clean_testset_wav
+Noisy audio directory: /home/codespace/.cache/kagglehub/datasets/anupamupadhaya/voicebank-cleantest-esc-crybaby-dog/versions/1/noisy_dataset_wav/noisy_dataset_wav
+Using device: cpu
+
+Creating datasets...
+Total samples in dataset: 824
+Training samples: 659
+Validation samples: 165
+
+Creating model...
+
+Total parameters: 741,730
+Trainable parameters: 741,730
+
+Starting training...
+================================================================================
+
+Epoch 1/5
+Training:   0%|          | 0/165 [00:00<?, ?it/s]

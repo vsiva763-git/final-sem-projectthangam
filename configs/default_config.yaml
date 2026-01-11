@@ -6,8 +6,8 @@ model:
 training:
   epochs: 100
   batch_size: 8
-  learning_rate: 1e-3
-  weight_decay: 1e-5
+  learning_rate: 0.001
+  weight_decay: 0.00001
 
 loss:
   alpha: 0.3  # Power-law compression parameter
@@ -18,6 +18,9 @@ data:
   n_fft: 512  # FFT size
   hop_length: 256  # Hop length for STFT
   max_length: 32000  # Maximum audio length in samples (None for no limit)
+  # Kaggle dataset paths
+  clean_dir: "/home/codespace/.cache/kagglehub/datasets/anupamupadhaya/voicebank-cleantest-esc-crybaby-dog/versions/1/clean_testset_wav/clean_testset_wav"
+  noisy_dir: "/home/codespace/.cache/kagglehub/datasets/anupamupadhaya/voicebank-cleantest-esc-crybaby-dog/versions/1/noisy_dataset_wav/noisy_dataset_wav"
 
 optimization:
   optimizer: "adam"
