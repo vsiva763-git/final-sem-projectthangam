@@ -11,7 +11,7 @@ from typing import Tuple
 class PowerLawCompressor(nn.Module):
     """
     Power-law compression for loss computation.
-    Helps balance different frequency ranges.
+    Helps balance different frequency ranges with numerical stability.
     """
     
     def __init__(self, alpha: float = 0.3):
@@ -26,7 +26,7 @@ class PowerLawCompressor(nn.Module):
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Apply power-law compression.
+        Apply power-law compression with numerical stability.
         
         Args:
             x: Input tensor
@@ -34,7 +34,9 @@ class PowerLawCompressor(nn.Module):
         Returns:
             Compressed tensor
         """
-        return torch.sign(x) * torch.abs(x) ** self.alpha
+        # Add small epsilon to avoid numerical issues near zero
+        epsilon = 1e-7
+        return torch.sign(x) * torch.pow(torch.abs(x) + epsilon, self.alpha)
 
 
 class ComplexValueLoss(nn.Module):
@@ -73,23 +75,18 @@ class ComplexValueLoss(nn.Module):
         Returns:
             Loss value
         """
-        # Clamp values to prevent numerical instability
-        enhanced_real = torch.clamp(enhanced_real, -100, 100)
-        enhanced_imag = torch.clamp(enhanced_imag, -100, 100)
-        clean_real = torch.clamp(clean_real, -100, 100)
-        clean_imag = torch.clamp(clean_imag, -100, 100)
-        
-        # Apply power-law compression
+        # Apply power-law compression with stable computation
         compressed_enhanced_real = self.compressor(enhanced_real)
         compressed_enhanced_imag = self.compressor(enhanced_imag)
         compressed_clean_real = self.compressor(clean_real)
         compressed_clean_imag = self.compressor(clean_imag)
         
-        # Compute MSE on compressed values with clipping
-        loss_real = self.mse(torch.clamp(compressed_enhanced_real, -100, 100), torch.clamp(compressed_clean_real, -100, 100))
-        loss_imag = self.mse(torch.clamp(compressed_enhanced_imag, -100, 100), torch.clamp(compressed_clean_imag, -100, 100))
+        # Compute MSE on compressed values
+        loss_real = self.mse(compressed_enhanced_real, compressed_clean_real)
+        loss_imag = self.mse(compressed_enhanced_imag, compressed_clean_imag)
         
-        return (loss_real + loss_imag) / 2.0
+        # Return mean to prevent loss explosion
+        return torch.clamp(loss_real + loss_imag, max=1e6) / 2.0
 
 
 class MagnitudeLoss(nn.Module):
@@ -124,12 +121,13 @@ class MagnitudeLoss(nn.Module):
         Returns:
             Loss value
         """
-        # Compute magnitudes
-        enhanced_mag = torch.sqrt(enhanced_real ** 2 + enhanced_imag ** 2 + 1e-8)
-        clean_mag = torch.sqrt(clean_real ** 2 + clean_imag ** 2 + 1e-8)
+        # Compute magnitudes with numerical stability
+        epsilon = 1e-8
+        enhanced_mag = torch.sqrt(enhanced_real ** 2 + enhanced_imag ** 2 + epsilon)
+        clean_mag = torch.sqrt(clean_real ** 2 + clean_imag ** 2 + epsilon)
         
         # Compute MSE on magnitudes
-        return self.mse(enhanced_mag, clean_mag)
+        return torch.clamp(self.mse(enhanced_mag, clean_mag), max=1e6)
 
 
 class CombinedLoss(nn.Module):
