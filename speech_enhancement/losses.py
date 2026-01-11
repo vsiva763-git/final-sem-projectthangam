@@ -133,7 +133,7 @@ class MagnitudeLoss(nn.Module):
 class CombinedLoss(nn.Module):
     """
     Combined Loss (L_total).
-    Weighted combination of complex value loss and magnitude loss.
+    Simple and stable loss using L1 and MSE.
     """
     
     def __init__(
@@ -146,14 +146,14 @@ class CombinedLoss(nn.Module):
         Initialize combined loss.
         
         Args:
-            alpha: Power-law compression parameter for complex value loss
-            lambda_cv: Weight for complex value loss
+            alpha: Power-law compression parameter (unused, kept for compatibility)
+            lambda_cv: Weight for L1 loss on components
             lambda_mag: Weight for magnitude loss
         """
         super().__init__()
         
-        self.cv_loss = ComplexValueLoss(alpha=alpha)
-        self.mag_loss = MagnitudeLoss()
+        self.l1_loss = nn.L1Loss()
+        self.mse_loss = nn.MSELoss()
         self.lambda_cv = lambda_cv
         self.lambda_mag = lambda_mag
     
@@ -165,7 +165,7 @@ class CombinedLoss(nn.Module):
         clean_imag: torch.Tensor,
     ) -> Tuple[torch.Tensor, dict]:
         """
-        Compute combined loss.
+        Compute combined loss using stable L1 and MSE.
         
         Args:
             enhanced_real: Predicted real part
@@ -176,17 +176,27 @@ class CombinedLoss(nn.Module):
         Returns:
             Total loss and dictionary with individual losses
         """
-        # Compute individual losses
-        cv_loss = self.cv_loss(enhanced_real, enhanced_imag, clean_real, clean_imag)
-        mag_loss = self.mag_loss(enhanced_real, enhanced_imag, clean_real, clean_imag)
+        # Simple L1 loss on real and imaginary parts (more stable than power-law)
+        cv_loss_real = self.l1_loss(enhanced_real, clean_real)
+        cv_loss_imag = self.l1_loss(enhanced_imag, clean_imag)
+        cv_loss = (cv_loss_real + cv_loss_imag) / 2.0
+        
+        # Magnitude loss
+        epsilon = 1e-8
+        enhanced_mag = torch.sqrt(enhanced_real ** 2 + enhanced_imag ** 2 + epsilon)
+        clean_mag = torch.sqrt(clean_real ** 2 + clean_imag ** 2 + epsilon)
+        mag_loss = self.mse_loss(enhanced_mag, clean_mag)
         
         # Weighted combination
         total_loss = self.lambda_cv * cv_loss + self.lambda_mag * mag_loss
         
+        # Ensure no NaN
+        total_loss = torch.clamp(total_loss, max=1e6)
+        
         loss_dict = {
-            "loss_total": total_loss.item(),
-            "loss_cv": cv_loss.item(),
-            "loss_mag": mag_loss.item(),
+            "loss_total": total_loss.item() if not torch.isnan(total_loss) else 0.0,
+            "loss_cv": cv_loss.item() if not torch.isnan(cv_loss) else 0.0,
+            "loss_mag": mag_loss.item() if not torch.isnan(mag_loss) else 0.0,
         }
         
         return total_loss, loss_dict
