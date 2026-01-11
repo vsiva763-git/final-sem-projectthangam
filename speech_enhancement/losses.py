@@ -73,17 +73,23 @@ class ComplexValueLoss(nn.Module):
         Returns:
             Loss value
         """
+        # Clamp values to prevent numerical instability
+        enhanced_real = torch.clamp(enhanced_real, -100, 100)
+        enhanced_imag = torch.clamp(enhanced_imag, -100, 100)
+        clean_real = torch.clamp(clean_real, -100, 100)
+        clean_imag = torch.clamp(clean_imag, -100, 100)
+        
         # Apply power-law compression
         compressed_enhanced_real = self.compressor(enhanced_real)
         compressed_enhanced_imag = self.compressor(enhanced_imag)
         compressed_clean_real = self.compressor(clean_real)
         compressed_clean_imag = self.compressor(clean_imag)
         
-        # Compute MSE on compressed values
-        loss_real = self.mse(compressed_enhanced_real, compressed_clean_real)
-        loss_imag = self.mse(compressed_enhanced_imag, compressed_clean_imag)
+        # Compute MSE on compressed values with clipping
+        loss_real = self.mse(torch.clamp(compressed_enhanced_real, -100, 100), torch.clamp(compressed_clean_real, -100, 100))
+        loss_imag = self.mse(torch.clamp(compressed_enhanced_imag, -100, 100), torch.clamp(compressed_clean_imag, -100, 100))
         
-        return loss_real + loss_imag
+        return (loss_real + loss_imag) / 2.0
 
 
 class MagnitudeLoss(nn.Module):

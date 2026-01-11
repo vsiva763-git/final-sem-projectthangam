@@ -252,6 +252,11 @@ class Trainer:
                 
                 # Backward pass with mixed precision
                 self.scaler.scale(loss).backward()
+                
+                # Gradient clipping with AMP
+                self.scaler.unscale_(self.optimizer)
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=10.0)
+                
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
             else:
