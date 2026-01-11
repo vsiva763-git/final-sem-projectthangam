@@ -40,6 +40,13 @@ def main(args):
     clean_dir = args.clean_dir or config['data'].get('clean_dir')
     noisy_dir = args.noisy_dir or config['data'].get('noisy_dir')
     
+    # Check if running on Kaggle and adjust paths accordingly
+    kaggle_dataset_path = '/kaggle/input/voicebank-cleantest-esc-crybaby-dog'
+    if Path(kaggle_dataset_path).exists():
+        clean_dir = f'{kaggle_dataset_path}/clean_testset_wav/clean_testset_wav'
+        noisy_dir = f'{kaggle_dataset_path}/noisy_dataset_wav/noisy_dataset_wav'
+        print(f"[Kaggle Environment Detected] Using Kaggle dataset paths")
+    
     if not clean_dir or not noisy_dir:
         raise ValueError("Must specify clean_dir and noisy_dir in config or command line")
     
